@@ -16,13 +16,18 @@ export default function App() {
     if (!input.trim()) return;
     const userText = input;
     setInput("");
-    setMessages(m => [...m, { role: "user", text: userText }]);
+    const newMessages = [...messages, { role: "user", text: userText }];
+    setMessages(newMessages);
     setLoading(true);
     try {
+      const history = newMessages.slice(1).slice(0, -1).map(m => ({
+        role: m.role,
+        text: m.text
+      }));
       const res = await fetch("http://127.0.0.1:8001/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userText })
+        body: JSON.stringify({ message: userText, history })
       });
       const data = await res.json();
       setMessages(m => [...m, { role: "ai", text: data.reply }]);

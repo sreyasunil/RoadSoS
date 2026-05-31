@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from google import genai
 from dotenv import load_dotenv
+from typing import List
 import os
 
 load_dotenv()
@@ -20,7 +21,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+SYSTEM = """You are RoadSoS, an AI road emergency assistant for India. Be calm, fast, life-saving focused.
+When user reports accident: ask triage questions — injuries? victim conscious? bleeding? vehicle fire? how many victims?
+Assess severity: MINOR / MODERATE / SEVERE (use these exact words).
+Recommend: MINOR→clinic, MODERATE→hospital, SEVERE→trauma center + call 108 immediately.
+Emergency numbers India: 108=Ambulance, 100=Police, 101=Fire, 112=All.
+Respond in user's language (English/Malayalam/Hindi/Tamil).
+Always end with: ⚠️ Call 108 or 112 for immediate help."""
+
+class Message(BaseModel):
+    role: str
+    text: str
+
 class ChatRequest(BaseModel):
+    history: List[Message]
     message: str
 
 @app.get("/")
@@ -30,9 +44,15 @@ def home():
 @app.post("/chat")
 def chat(data: ChatRequest):
     try:
+        contents = []
+        for m in data.history[-6:]:
+            role = "user" if m.role == "user" else "model"
+            contents.append({"role": role, "parts": [{"text": m.text}]})
+        contents.append({"role": "user", "parts": [{"text": SYSTEM + "\n\n" + data.message}]})
+
         response = client.models.generate_content(
             model="models/gemini-2.5-flash",
-            contents=data.message
+            contents=contents
         )
         return {"reply": response.text}
     except Exception as e:
