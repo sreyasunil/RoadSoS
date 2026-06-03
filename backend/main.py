@@ -6,6 +6,8 @@ from google import genai
 from dotenv import load_dotenv
 from typing import List
 import os
+from fastapi import UploadFile, File
+from PIL import Image
 
 load_dotenv()
 print("KEY FOUND:", os.getenv("GEMINI_API_KEY"))
@@ -58,3 +60,44 @@ def chat(data: ChatRequest):
     except Exception as e:
         print("ERROR:", e)
         raise
+
+@app.post("/analyze-image")
+async def analyze_image(file: UploadFile = File(...)):
+
+    try:
+
+        image = Image.open(file.file)
+
+        prompt = """
+You are an accident severity analysis AI.
+
+Analyze this road accident image and provide:
+
+1. Severity:
+MINOR / MODERATE / SEVERE
+
+2. Visible injuries
+
+3. Vehicle damage
+
+4. Immediate actions
+
+5. Whether ambulance should be called
+
+Keep response short and structured.
+"""
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[prompt, image]
+        )
+
+        return {
+            "analysis": response.text
+        }
+
+    except Exception as e:
+        print("IMAGE ERROR:", e)
+        return {
+            "analysis": "Unable to analyze image."
+        }
